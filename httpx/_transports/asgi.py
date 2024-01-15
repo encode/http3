@@ -16,11 +16,9 @@ if typing.TYPE_CHECKING:  # pragma: no cover
 
 _Message = typing.Dict[str, typing.Any]
 _Receive = typing.Callable[[], typing.Awaitable[_Message]]
-_Send = typing.Callable[
-    [typing.Dict[str, typing.Any]], typing.Coroutine[None, None, None]
-]
+_Send = typing.Callable[[_Message], typing.Awaitable[None]]
 _ASGIApp = typing.Callable[
-    [typing.Dict[str, typing.Any], _Receive, _Send], typing.Coroutine[None, None, None]
+    [typing.Dict[str, typing.Any], _Receive, _Send], typing.Awaitable[None]
 ]
 
 
@@ -123,7 +121,7 @@ class ASGITransport(AsyncBaseTransport):
 
         # ASGI callables.
 
-        async def receive() -> typing.Dict[str, typing.Any]:
+        async def receive() -> _Message:
             nonlocal request_complete
 
             if request_complete:
@@ -137,7 +135,7 @@ class ASGITransport(AsyncBaseTransport):
                 return {"type": "http.request", "body": b"", "more_body": False}
             return {"type": "http.request", "body": body, "more_body": True}
 
-        async def send(message: typing.Dict[str, typing.Any]) -> None:
+        async def send(message: _Message) -> None:
             nonlocal status_code, response_headers, response_started
 
             if message["type"] == "http.response.start":
