@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+* `HttpStatusError` and `RequestError` are now pickleable. (#3108)
 * Fix `app` type signature in `ASGITransport`. (#3109)
 
 ## 0.27.0 (21st February, 2024)

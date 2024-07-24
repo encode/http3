@@ -103,6 +103,13 @@ class HTTPError(Exception):
     def request(self, request: Request) -> None:
         self._request = request
 
+    def __reduce__(
+        self,
+    ) -> typing.Tuple[
+        typing.Callable[..., Exception], typing.Tuple[typing.Any], dict[str, typing.Any]
+    ]:
+        return (Exception.__new__, (type(self),) + self.args, self.__dict__)
+
 
 class RequestError(HTTPError):
     """
