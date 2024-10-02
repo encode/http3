@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import codecs
 import email.message
+import enum
 import ipaddress
 import mimetypes
 import os
@@ -13,11 +14,10 @@ from urllib.request import getproxies
 
 import sniffio
 
-from ._types import PrimitiveData
+from ._types import FormPrimitiveData, PrimitiveData
 
 if typing.TYPE_CHECKING:  # pragma: no cover
     from ._urls import URL
-
 
 _HTML5_FORM_ENCODING_REPLACEMENTS = {'"': "%22", "\\": "\\\\"}
 _HTML5_FORM_ENCODING_REPLACEMENTS.update(
@@ -68,6 +68,30 @@ def primitive_value_to_str(value: PrimitiveData) -> str:
     elif value is None:
         return ""
     return str(value)
+
+
+def primitive_form_value_to_str(value: FormPrimitiveData) -> str | bytes:
+    """
+    Coerce a primitive data type into a form value.
+
+    Note that we prefer JSON-style 'true'/'false' for boolean values here.
+    """
+    if value is True:
+        return "true"
+    elif value is False:
+        return "false"
+    elif value is None:
+        return ""
+    if isinstance(value, enum.Enum):
+        # StrEnum, IntEnum and `class (int|str, Enum)` is handled above
+        return primitive_form_value_to_str(value.value)
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, (str, bytes)):
+        return value
+    raise TypeError(
+        f"Invalid type for value. Expected FormPrimitiveData, got {type(value)} instead"
+    )
 
 
 def is_known_encoding(encoding: str) -> bool:

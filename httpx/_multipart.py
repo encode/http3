@@ -17,7 +17,7 @@ from ._utils import (
     format_form_param,
     guess_content_type,
     peek_filelike_length,
-    primitive_value_to_str,
+    primitive_form_value_to_str,
     to_bytes,
 )
 
@@ -41,20 +41,18 @@ class DataField:
     A single form field item, within a multipart form field.
     """
 
-    def __init__(self, name: str, value: str | bytes | int | float | None) -> None:
+    def __init__(self, name: str, value: str | bytes) -> None:
         if not isinstance(name, str):
             raise TypeError(
                 f"Invalid type for name. Expected str, got {type(name)}: {name!r}"
             )
-        if value is not None and not isinstance(value, (str, bytes, int, float)):
-            raise TypeError(
+        if value is not None and not isinstance(value, (str, bytes)):
+            raise TypeError(  # pragma: no cover
                 "Invalid type for value. Expected primitive type,"
                 f" got {type(value)}: {value!r}"
             )
         self.name = name
-        self.value: str | bytes = (
-            value if isinstance(value, bytes) else primitive_value_to_str(value)
-        )
+        self.value: str | bytes = value if isinstance(value, bytes) else value
 
     def render_headers(self) -> bytes:
         if not hasattr(self, "_headers"):
@@ -216,13 +214,13 @@ class MultipartStream(SyncByteStream, AsyncByteStream):
         for name, value in data.items():
             if isinstance(value, (tuple, list)):
                 for item in value:
-                    yield DataField(name=name, value=item)
+                    yield DataField(name=name, value=primitive_form_value_to_str(item))
             else:
-                yield DataField(name=name, value=value)
+                yield DataField(name=name, value=primitive_form_value_to_str(value))
 
         file_items = files.items() if isinstance(files, typing.Mapping) else files
-        for name, value in file_items:
-            yield FileField(name=name, value=value)
+
+        yield from (FileField(name=name, value=value) for name, value in file_items)
 
     def iter_chunks(self) -> typing.Iterator[bytes]:
         for field in self.fields:

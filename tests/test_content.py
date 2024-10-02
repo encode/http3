@@ -1,3 +1,4 @@
+import enum
 import io
 import typing
 
@@ -182,7 +183,21 @@ async def test_json_content():
 
 @pytest.mark.anyio
 async def test_urlencoded_content():
-    request = httpx.Request(method, url, data={"Hello": "world!"})
+    class Flag(enum.Enum):
+        flag = "f"
+
+    request = httpx.Request(
+        method,
+        url,
+        data={
+            "Hello": "world!",
+            "foo": Flag.flag,
+            "like": True,
+            "bar": 123,
+            "egg": False,
+            "b": b"\x01\x02",
+        },
+    )
     assert isinstance(request.stream, typing.Iterable)
     assert isinstance(request.stream, typing.AsyncIterable)
 
@@ -191,11 +206,11 @@ async def test_urlencoded_content():
 
     assert request.headers == {
         "Host": "www.example.com",
-        "Content-Length": "14",
+        "Content-Length": "57",
         "Content-Type": "application/x-www-form-urlencoded",
     }
-    assert sync_content == b"Hello=world%21"
-    assert async_content == b"Hello=world%21"
+    assert sync_content == b"Hello=world%21&foo=f&like=true&bar=123&egg=false&b=%01%02"
+    assert async_content == b"Hello=world%21&foo=f&like=true&bar=123&egg=false&b=%01%02"
 
 
 @pytest.mark.anyio
@@ -484,3 +499,9 @@ async def test_response_aiterator_content():
 def test_response_invalid_argument():
     with pytest.raises(TypeError):
         httpx.Response(200, content=123)  # type: ignore
+
+    class AnyObject:
+        pass
+
+    with pytest.raises(TypeError):
+        httpx.Request("GET", "", data={"hello": AnyObject()})  # type: ignore

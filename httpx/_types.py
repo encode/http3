@@ -2,6 +2,7 @@
 Type definitions for type checking purposes.
 """
 
+import enum
 import ssl
 from http.cookiejar import CookieJar
 from typing import (
@@ -29,7 +30,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._config import Proxy, Timeout  # noqa: F401
     from ._models import Cookies, Headers, Request  # noqa: F401
     from ._urls import URL, QueryParams  # noqa: F401
-
 
 PrimitiveData = Optional[Union[str, int, float, bool]]
 
@@ -91,7 +91,16 @@ RequestContent = Union[str, bytes, Iterable[bytes], AsyncIterable[bytes]]
 ResponseContent = Union[str, bytes, Iterable[bytes], AsyncIterable[bytes]]
 ResponseExtensions = MutableMapping[str, Any]
 
-RequestData = Mapping[str, Any]
+FormPrimitiveData = Union[str, bytes, int, float, bool, None, enum.Enum]
+
+RequestData = Mapping[
+    str,
+    Union[
+        FormPrimitiveData,
+        List[FormPrimitiveData],
+        Tuple[FormPrimitiveData, ...],
+    ],
+]
 
 FileContent = Union[IO[bytes], bytes, str]
 FileTypes = Union[

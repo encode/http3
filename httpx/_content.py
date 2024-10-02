@@ -23,7 +23,7 @@ from ._types import (
     ResponseContent,
     SyncByteStream,
 )
-from ._utils import peek_filelike_length, primitive_value_to_str
+from ._utils import peek_filelike_length, primitive_form_value_to_str
 
 __all__ = ["ByteStream"]
 
@@ -139,9 +139,11 @@ def encode_urlencoded_data(
     plain_data = []
     for key, value in data.items():
         if isinstance(value, (list, tuple)):
-            plain_data.extend([(key, primitive_value_to_str(item)) for item in value])
+            plain_data.extend(
+                [(key, primitive_form_value_to_str(item)) for item in value]
+            )
         else:
-            plain_data.append((key, primitive_value_to_str(value)))
+            plain_data.append((key, primitive_form_value_to_str(value)))
     body = urlencode(plain_data, doseq=True).encode("utf-8")
     content_length = str(len(body))
     content_type = "application/x-www-form-urlencoded"
