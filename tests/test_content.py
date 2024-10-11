@@ -200,7 +200,7 @@ async def test_urlencoded_content():
 
 @pytest.mark.anyio
 async def test_urlencoded_boolean():
-    request = httpx.Request(method, url, data={"example": True})
+    request = httpx.Request(method, url, data={"example": True, "e2": False})
     assert isinstance(request.stream, typing.Iterable)
     assert isinstance(request.stream, typing.AsyncIterable)
 
@@ -209,11 +209,11 @@ async def test_urlencoded_boolean():
 
     assert request.headers == {
         "Host": "www.example.com",
-        "Content-Length": "12",
+        "Content-Length": "21",
         "Content-Type": "application/x-www-form-urlencoded",
     }
-    assert sync_content == b"example=true"
-    assert async_content == b"example=true"
+    assert sync_content == b"example=true&e2=false"
+    assert async_content == b"example=true&e2=false"
 
 
 @pytest.mark.anyio

@@ -21,6 +21,7 @@ from __future__ import annotations
 import ipaddress
 import re
 import typing
+from urllib.parse import quote_from_bytes
 
 import idna
 
@@ -434,10 +435,13 @@ def PERCENT(string: str) -> str:
     return "".join([f"%{byte:02X}" for byte in string.encode("utf-8")])
 
 
-def percent_encoded(string: str, safe: str = "/") -> str:
+def percent_encoded(string: str | bytes, safe: str = "/") -> str:
     """
     Use percent-encoding to quote a string.
     """
+    if isinstance(string, bytes):
+        return quote_from_bytes(string)
+
     NON_ESCAPED_CHARS = UNRESERVED_CHARACTERS + safe
 
     # Fast path for strings that don't need escaping.
@@ -482,7 +486,7 @@ def quote(string: str, safe: str = "/") -> str:
     return "".join(parts)
 
 
-def urlencode(items: list[tuple[str, str]]) -> str:
+def urlencode(items: list[tuple[str, str | bytes]]) -> str:
     """
     We can use a much simpler version of the stdlib urlencode here because
     we don't need to handle a bunch of different typing cases, such as bytes vs str.

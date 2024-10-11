@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import codecs
 import email.message
+import enum
 import ipaddress
 import mimetypes
 import os
@@ -17,7 +18,6 @@ from ._types import PrimitiveData
 
 if typing.TYPE_CHECKING:  # pragma: no cover
     from ._urls import URL
-
 
 _HTML5_FORM_ENCODING_REPLACEMENTS = {'"': "%22", "\\": "\\\\"}
 _HTML5_FORM_ENCODING_REPLACEMENTS.update(
@@ -68,6 +68,22 @@ def primitive_value_to_str(value: PrimitiveData) -> str:
     elif value is None:
         return ""
     return str(value)
+
+
+def encode_query_value(value: typing.Any) -> str | bytes:
+    if isinstance(value, (str, bytes)):
+        return value
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return ""
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, enum.Enum):
+        return encode_query_value(value.value)
+    raise TypeError(f"can't use {type(value)!r} as query value")
 
 
 def is_known_encoding(encoding: str) -> bool:

@@ -1,3 +1,7 @@
+import enum
+import re
+import types
+
 import pytest
 
 import httpx
@@ -75,6 +79,13 @@ def test_queryparam_types():
     q = httpx.QueryParams({"a": [1, 2]})
     assert str(q) == "a=1&a=2"
 
+    class E(enum.Enum):
+        v1 = 1
+        v2 = "v2"
+
+    q = httpx.QueryParams({"a": [E.v1, E.v2]})
+    assert str(q) == "a=1&a=v2"
+
 
 def test_empty_query_params():
     q = httpx.QueryParams({"a": ""})
@@ -134,3 +145,13 @@ def test_queryparams_are_hashable():
     )
 
     assert len(set(params)) == 2
+
+
+def test_queryparams_bytes():
+    q = httpx.QueryParams({"q": bytes.fromhex("E1EE0E2734986F5419BB6C")})
+    assert str(q) == "q=%E1%EE%0E%274%98oT%19%BBl"
+
+
+def test_queryparams_error():
+    with pytest.raises(TypeError, match=re.compile(r"can't use .* as query value")):
+        httpx.QueryParams({"q": types.SimpleNamespace()})  # type: ignore
