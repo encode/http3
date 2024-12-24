@@ -483,7 +483,7 @@ def main(
                 params=list(params),
                 content=content,
                 data=dict(data),
-                files=files,  # type: ignore
+                files=files or None,  # type: ignore
                 json=json,
                 headers=headers,
                 cookies=dict(cookies),

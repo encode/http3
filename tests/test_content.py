@@ -344,7 +344,7 @@ async def test_multipart_data_and_files_content():
 
 @pytest.mark.anyio
 async def test_empty_request():
-    request = httpx.Request(method, url, data={}, files={})
+    request = httpx.Request(method, url, data={})
     assert isinstance(request.stream, typing.Iterable)
     assert isinstance(request.stream, typing.AsyncIterable)
 
@@ -516,3 +516,13 @@ def test_allow_nan_false():
         ValueError, match="Out of range float values are not JSON compliant"
     ):
         httpx.Response(200, json=data_with_inf)
+
+
+def test_encode_request_with_data_and_empty_files():
+    request = httpx.Request(
+        url="https://www.example.com", method="POST", data={"key": "value"}, files={}
+    )
+    assert request.headers["Content-Type"].startswith("multipart/form-data; boundary=")
+    request.read()
+    assert b'Content-Disposition: form-data; name="key"' in request.content
+    assert b"value" in request.content

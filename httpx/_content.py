@@ -208,7 +208,7 @@ def encode_request(
 
     if content is not None:
         return encode_content(content)
-    elif files:
+    elif files is not None:
         return encode_multipart_data(data or {}, files, boundary)
     elif data:
         return encode_urlencoded_data(data)
