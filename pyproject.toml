@@ -129,5 +129,5 @@ markers = [
 ]
 
 [tool.coverage.run]
-omit = ["venv/*"]
+omit = ["venv/*", "httpx/_compat.py"]
 include = ["httpx/*", "tests/*"]

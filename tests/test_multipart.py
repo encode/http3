@@ -4,7 +4,9 @@ import io
 import tempfile
 import typing
 
+import anyio
 import pytest
+import trio
 
 import httpx
 
@@ -39,6 +41,61 @@ def test_multipart(value, output):
             b"--" + boundary_bytes + b"--\r\n",
         ]
     )
+
+
+async def test_async_multipart_streaming(tmp_path, server, anyio_backend):
+    content = b"\n".join([b"a" * io.DEFAULT_BUFFER_SIZE] * 3)
+    to_upload = tmp_path / "test.txt"
+    to_upload.write_bytes(content)
+    empty_file = tmp_path / "empty.txt"
+    empty_file.write_bytes(b"")
+    opener: typing.Any
+    text_opener: typing.Any
+    empty_opener: typing.Any
+    if anyio_backend == "trio":
+        opener = trio.open_file(to_upload, "b+r")
+        text_opener = trio.open_file(to_upload, "t+r")
+        empty_opener = trio.open_file(empty_file, "b+r")
+    else:
+        opener = anyio.open_file(to_upload, "b+r")
+        text_opener = anyio.open_file(to_upload, "t+r")
+        empty_opener = anyio.open_file(empty_file, "b+r")
+    url = server.url.copy_with(path="/echo_body")
+    async with await opener as fp, httpx.AsyncClient() as client:
+        files = {"file": fp}
+        response = await client.post(url, files=files)
+        boundary = response.request.headers["Content-Type"].split("boundary=")[-1]
+        boundary_bytes = boundary.encode("ascii")
+
+        assert response.status_code == 200
+        assert response.content == b"".join(
+            [
+                b"--" + boundary_bytes + b"\r\n",
+                b'Content-Disposition: form-data; name="file";'
+                b' filename="test.txt"\r\n',
+                b"Content-Type: text/plain\r\n",
+                b"\r\n",
+                content,
+                b"\r\n",
+                b"--" + boundary_bytes + b"--\r\n",
+            ]
+        )
+
+        with httpx.Client() as sync_client:
+            with pytest.raises(TypeError, match="AsyncIterable is not supported"):
+                sync_client.post(url, files=files)
+
+    async with await text_opener as fp, httpx.AsyncClient() as client:
+        files = {"file": fp}
+        with pytest.raises(
+            TypeError,
+            match="Multipart file uploads must be opened in binary mode",
+        ):
+            await client.post(url, files=files)
+
+    async with await empty_opener as fp, httpx.AsyncClient() as client:
+        files = {"file": fp}
+        await client.post(url, files=files)
 
 
 @pytest.mark.parametrize(
