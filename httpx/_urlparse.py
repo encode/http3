@@ -210,6 +210,17 @@ class ParseResult(typing.NamedTuple):
         )
 
 
+def _check_ascii_printable(url: str, key: str | None = None) -> None:
+    for idx, char in enumerate(url):
+        if char.isascii() and not char.isprintable():
+            error = "Invalid non-printable ASCII character in URL"
+            if key is None:
+                error += f", {char!r} at position {idx}."
+            else:
+                error += f" {key} component, {char!r} at position {idx}."
+            raise InvalidURL(error)
+
+
 def urlparse(url: str = "", **kwargs: str | None) -> ParseResult:
     # Initial basic checks on allowable URLs.
     # ---------------------------------------
@@ -220,13 +231,7 @@ def urlparse(url: str = "", **kwargs: str | None) -> ParseResult:
 
     # If a URL includes any ASCII control characters including \t, \r, \n,
     # then treat it as invalid.
-    if any(char.isascii() and not char.isprintable() for char in url):
-        char = next(char for char in url if char.isascii() and not char.isprintable())
-        idx = url.find(char)
-        error = (
-            f"Invalid non-printable ASCII character in URL, {char!r} at position {idx}."
-        )
-        raise InvalidURL(error)
+    _check_ascii_printable(url)
 
     # Some keyword arguments require special handling.
     # ------------------------------------------------
@@ -270,16 +275,7 @@ def urlparse(url: str = "", **kwargs: str | None) -> ParseResult:
 
             # If a component includes any ASCII control characters including \t, \r, \n,
             # then treat it as invalid.
-            if any(char.isascii() and not char.isprintable() for char in value):
-                char = next(
-                    char for char in value if char.isascii() and not char.isprintable()
-                )
-                idx = value.find(char)
-                error = (
-                    f"Invalid non-printable ASCII character in URL {key} component, "
-                    f"{char!r} at position {idx}."
-                )
-                raise InvalidURL(error)
+            _check_ascii_printable(value, key)
 
             # Ensure that keyword arguments match as a valid regex.
             if not COMPONENT_REGEX[key].fullmatch(value):
