@@ -169,7 +169,7 @@ Form encoded data can also include multiple values from a given key.
 }
 ```
 
-## Sending Multipart File Uploads
+## Sending Multipart File Uploads and/or Data
 
 You can also upload files, using HTTP multipart encoding:
 
@@ -216,6 +216,23 @@ If you need to include non-file data fields in the multipart form, use the `data
   },
   "form": {
     "message": "Hello, world!",
+  },
+  ...
+}
+```
+
+If you need to send non-file data only, you can do so by using a tuple
+of items for the field value without a filename:
+
+```pycon
+>>> files = {'some-field': (None, "field-value")}
+>>> r = httpx.post("https://httpbin.org/post", files=files)
+>>> print(r.text)
+{
+  ...
+  "files": {},
+  "form": {
+    "some-field": "field-value"
   },
   ...
 }
