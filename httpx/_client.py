@@ -980,13 +980,14 @@ class Client(BaseClient):
             try:
                 for hook in self._event_hooks["response"]:
                     hook(response)
-                response.history = list(history)
+                transport_history = response.history
+                response.history = list(history) + transport_history
 
                 if not response.has_redirect_location:
                     return response
 
                 request = self._build_redirect_request(request, response)
-                history = history + [response]
+                history = history + transport_history + [response]
 
                 if follow_redirects:
                     response.read()
@@ -1695,14 +1696,14 @@ class AsyncClient(BaseClient):
             try:
                 for hook in self._event_hooks["response"]:
                     await hook(response)
-
-                response.history = list(history)
+                transport_history = response.history
+                response.history = list(history) + transport_history
 
                 if not response.has_redirect_location:
                     return response
 
                 request = self._build_redirect_request(request, response)
-                history = history + [response]
+                history = history + transport_history + [response]
 
                 if follow_redirects:
                     await response.aread()

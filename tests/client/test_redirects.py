@@ -107,6 +107,12 @@ def redirects(request: httpx.Request) -> httpx.Response:
         headers = {"location": "market://details?id=42"}
         return httpx.Response(status_code, headers=headers)
 
+    elif request.url.path == "/redirect_303_with_history":
+        status_code = httpx.codes.SEE_OTHER
+        headers = {"location": "https://example.org/"}
+        history = [httpx.Response(status_code, headers=headers)]
+        return httpx.Response(status_code, headers=headers, history=history)
+
     if request.method == "HEAD":
         return httpx.Response(200)
 
@@ -445,3 +451,25 @@ async def test_async_invalid_redirect():
             await client.get(
                 "http://example.org/invalid_redirect", follow_redirects=True
             )
+
+
+def test_redirect_303_history():
+    client = httpx.Client(transport=httpx.MockTransport(redirects))
+    response = client.get(
+        "https://example.org/redirect_303_with_history", follow_redirects=True
+    )
+    assert response.status_code == httpx.codes.OK
+    assert response.url == "https://example.org/"
+    assert len(response.history) == 2
+
+
+@pytest.mark.anyio
+async def test_async_redirect_history():
+    async with httpx.AsyncClient(transport=httpx.MockTransport(redirects)) as client:
+        request = client.build_request(
+            "POST", "https://example.org/redirect_303_with_history"
+        )
+        response = await client.send(request, follow_redirects=True)
+        assert response.status_code == httpx.codes.OK
+        assert response.url == "https://example.org/"
+        assert len(response.history) == 2
