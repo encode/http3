@@ -58,6 +58,13 @@ requests and responses will be transported over HTTP/2, since both the client
 *and* the server need to support HTTP/2. If you connect to a server that only
 supports HTTP/1.1 the client will use a standard HTTP/1.1 connection instead.
 
+To force HTTP/2 to be enabled, disable HTTP/1.1. Otherwise, the client will try to use HTTP/1.1
+```python
+client = httpx.AsyncClient(http1=False, http2=True)
+# or
+async with httpx.AsyncClient(http1=False, http2=True) as client:
+```
+
 You can determine which version of the HTTP protocol was used by examining
 the `.http_version` property on the response.
 
