@@ -16,6 +16,12 @@ WebSocket support for HTTPX.
 
 Proxy (HTTP, SOCKS) transports for httpx.
 
+### httpdbg
+
+[GitHub](https://github.com/cle-b/httpdbg) - [Documentation](https://httpdbg.readthedocs.io/)
+
+A tool for Python developers to easily debug the HTTP(S) client requests in a Python program.
+
 ### Hishel
 
 [GitHub](https://github.com/karpetrosyan/hishel) - [Documentation](https://hishel.com/)
