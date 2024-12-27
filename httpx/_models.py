@@ -1239,6 +1239,14 @@ class Cookies(typing.MutableMapping[str, str]):
         )
 
         return f"<Cookies[{cookies_repr}]>"
+    
+    def __iadd__(self, other):
+        if isinstance(other, self.__class__):
+            self._cookies.update(other._cookies)
+        else:
+            raise ValueError("Cannot add a non-Cookies instance.")
+
+        return self
 
     class _CookieCompatRequest(urllib.request.Request):
         """
