@@ -22,6 +22,23 @@ jobs:
         with:
           python-version: "${{ matrix.python-version }}"
           allow-prereleases: true
+      - uses: pyodide/pyodide-actions/install-browser@v2
+        if: ${{ matrix.python-version ==3.12 }}
+        with:
+          runner: selenium
+          browser: chrome
+          browser-version: 120
+      - uses: pyodide/pyodide-actions/install-browser@v2
+        if: ${{ matrix.python-version ==3.12 }}
+        with:
+          runner: selenium
+          browser: node
+          browser-version: 22
+      - uses: pyodide/pyodide-actions/download-pyodide@v2
+        if: ${{ matrix.python-version ==3.12 }}
+        with:
+          version: 0.26.2
+          to: pyodide_dist
       - name: "Install dependencies"
         run: "scripts/install"
       - name: "Run linting checks"

@@ -3,8 +3,6 @@ from __future__ import annotations
 import typing
 from urllib.parse import parse_qs, unquote, urlencode
 
-import idna
-
 from ._types import QueryParamTypes
 from ._urlparse import urlparse
 from ._utils import primitive_value_to_str
@@ -188,6 +186,8 @@ class URL:
         host: str = self._uri_reference.host
 
         if host.startswith("xn--"):
+            import idna
+
             host = idna.decode(host)
 
         return host

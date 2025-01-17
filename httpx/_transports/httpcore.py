@@ -11,16 +11,16 @@ Example usages...
 
 # Disable HTTP/2 on a single specific domain.
 mounts = {
-    "all://": httpx.HTTPTransport(http2=True),
-    "all://*example.org": httpx.HTTPTransport()
+    "all://": httpx.HTTPCoreTransport(http2=True),
+    "all://*example.org": httpx.HTTPCoreTransport()
 }
 
 # Using advanced httpcore configuration, with connection retries.
-transport = httpx.HTTPTransport(retries=1)
+transport = httpx.HTTPCoreTransport(retries=1)
 client = httpx.Client(transport=transport)
 
 # Using advanced httpcore configuration, with unix domain sockets.
-transport = httpx.HTTPTransport(uds="socket.uds")
+transport = httpx.HTTPCoreTransport(uds="socket.uds")
 client = httpx.Client(transport=transport)
 """
 
@@ -57,8 +57,8 @@ from .._types import AsyncByteStream, CertTypes, ProxyTypes, SyncByteStream
 from .._urls import URL
 from .base import AsyncBaseTransport, BaseTransport
 
-T = typing.TypeVar("T", bound="HTTPTransport")
-A = typing.TypeVar("A", bound="AsyncHTTPTransport")
+T = typing.TypeVar("T", bound="HTTPCoreTransport")
+A = typing.TypeVar("A", bound="AsyncHTTPCoreTransport")
 
 SOCKET_OPTION = typing.Union[
     typing.Tuple[int, int, int],
@@ -66,7 +66,7 @@ SOCKET_OPTION = typing.Union[
     typing.Tuple[int, int, None, int],
 ]
 
-__all__ = ["AsyncHTTPTransport", "HTTPTransport"]
+__all__ = ["AsyncHTTPCoreTransport", "HTTPCoreTransport"]
 
 HTTPCORE_EXC_MAP: dict[type[Exception], type[httpx.HTTPError]] = {}
 
@@ -132,7 +132,7 @@ class ResponseStream(SyncByteStream):
             self._httpcore_stream.close()
 
 
-class HTTPTransport(BaseTransport):
+class HTTPCoreTransport(BaseTransport):
     def __init__(
         self,
         verify: ssl.SSLContext | str | bool = True,
@@ -276,7 +276,7 @@ class AsyncResponseStream(AsyncByteStream):
             await self._httpcore_stream.aclose()
 
 
-class AsyncHTTPTransport(AsyncBaseTransport):
+class AsyncHTTPCoreTransport(AsyncBaseTransport):
     def __init__(
         self,
         verify: ssl.SSLContext | str | bool = True,

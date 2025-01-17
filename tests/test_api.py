@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import typing
 
 import pytest
@@ -89,14 +91,12 @@ def test_get_invalid_url():
 
 # check that httpcore isn't imported until we do a request
 def test_httpcore_lazy_loading(server):
-    import sys
-
-    # unload our module if it is already loaded
-    if "httpx" in sys.modules:
-        del sys.modules["httpx"]
-        del sys.modules["httpcore"]
-    import httpx
-
-    assert "httpcore" not in sys.modules
-    _response = httpx.get(server.url)
-    assert "httpcore" in sys.modules
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            "import httpx,sys;assert 'httpcore' not in sys.modules;"
+            + f"_response = httpx.get('{server.url}');"
+            + "assert 'httpcore' in sys.modules",
+        ]
+    )

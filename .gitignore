@@ -10,3 +10,4 @@ venv*/
 .python-version
 build/
 dist/
+pyodide_dist

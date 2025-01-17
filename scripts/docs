@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 
 export PREFIX=""
 if [ -d 'venv' ] ; then
@@ -7,4 +7,17 @@ fi
 
 set -x
 
+# for local use of emscripten, we need a test wheel 
+# in the docs folder so that the emscripten live demo
+# web page works with the built version
+function cleanup {
+  echo "Removing docs/test.whl"
+  rm  docs/test.whl
+}
+
+# remove the test wheel from docs after we serve,
+# so it doesn't get added into the distribution on
+# github docs
+trap cleanup EXIT
+cp dist/*.whl docs/test.whl
 ${PREFIX}mkdocs serve

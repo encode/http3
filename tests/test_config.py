@@ -1,4 +1,6 @@
 import ssl
+import subprocess
+import sys
 import typing
 from pathlib import Path
 
@@ -182,3 +184,15 @@ def test_proxy_with_auth_from_url():
 def test_invalid_proxy_scheme():
     with pytest.raises(ValueError):
         httpx.Proxy("invalid://example.com")
+
+
+def test_certifi_lazy_loading():
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            "import httpx,sys;assert 'certifi' not in sys.modules;"
+            "_context = httpx.create_ssl_context();"
+            "assert 'certifi' in sys.modules",
+        ]
+    )

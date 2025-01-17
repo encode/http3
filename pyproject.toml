@@ -29,9 +29,9 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = [
-    "certifi",
-    "httpcore==1.*",
-    "anyio",
+    "certifi;sys_platform != 'emscripten'",
+    "httpcore==1.*;sys_platform != 'emscripten'",
+    "anyio;sys_platform != 'emscripten'",
     "idna",
 ]
 dynamic = ["readme", "version"]
@@ -131,3 +131,9 @@ markers = [
 [tool.coverage.run]
 omit = ["venv/*"]
 include = ["httpx/*", "tests/*"]
+
+[tool.coverage.paths]
+source = [
+    "httpx/",
+    "**/httpx/",
+    ]

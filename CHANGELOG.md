@@ -4,13 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+* Support for Emscripten (#3330)
+
 ## 0.28.1 (6th December, 2024)
 
 * Fix SSL case where `verify=False` together with client side certificates.
  
 ## 0.28.0 (28th November, 2024)
 
-The 0.28 release includes a limited set of deprecations.
+The 0.28 release includes a limited set of backwards incompatible changes.
 
 **Deprecations**:
 

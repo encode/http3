@@ -4,6 +4,7 @@ import os
 import threading
 import time
 import typing
+from pathlib import Path
 
 import pytest
 import trustme
@@ -72,6 +73,10 @@ async def app(scope: Scope, receive: Receive, send: Send) -> None:
         await redirect_301(scope, receive, send)
     elif scope["path"].startswith("/json"):
         await hello_world_json(scope, receive, send)
+    elif scope["path"].startswith("/wheel_download"):  # pragma: nocover for emscripten
+        await wheel_download(scope, receive, send)
+    elif scope["path"].startswith("/emscripten"):  # pragma: nocover for emscripten
+        await hello_world_emscripten(scope, receive, send)
     else:
         await hello_world(scope, receive, send)
 
@@ -85,6 +90,55 @@ async def hello_world(scope: Scope, receive: Receive, send: Send) -> None:
         }
     )
     await send({"type": "http.response.body", "body": b"Hello, world!"})
+
+
+# For testing on emscripten, we require cross origin isolation headers
+# to be set or else browsers won't be able to read from us from javascript
+async def hello_world_emscripten(
+    scope: Scope, receive: Receive, send: Send
+) -> None:  # pragma: nocover for emscripten
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                [b"content-type", b"text/plain"],
+                [b"access-control-allow-origin", "*"],
+                [
+                    b"access-control-allow-methods",
+                    b"PUT, GET, HEAD, POST, DELETE, OPTIONS",
+                ],
+                [b"Access-Control-Allow-Headers", b"*"],
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": b"Hello, world!"})
+
+
+# For testing on emscripten, it is useful to be able to
+# get the wheel package so that we can install it e.g.
+# on web-workers
+async def wheel_download(
+    scope: Scope, receive: Receive, send: Send
+) -> None:  # pragma: nocover for emscripten
+    wheel_file = list(Path("dist").glob("*.whl"))[0]
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                [b"content-type", b"application/x-wheel"],
+                [b"access-control-allow-origin", "*"],
+                [
+                    b"access-control-allow-methods",
+                    b"PUT, GET, HEAD, POST, DELETE, OPTIONS",
+                ],
+                [b"Access-Control-Allow-Headers", b"*"],
+            ],
+        }
+    )
+    wheel_bytes = wheel_file.read_bytes()
+    await send({"type": "http.response.body", "body": wheel_bytes})
 
 
 async def hello_world_json(scope: Scope, receive: Receive, send: Send) -> None:
@@ -103,7 +157,16 @@ async def slow_response(scope: Scope, receive: Receive, send: Send) -> None:
         {
             "type": "http.response.start",
             "status": 200,
-            "headers": [[b"content-type", b"text/plain"]],
+            "headers": [
+                [b"content-type", b"text/plain"],
+                [b"access-control-allow-origin", "*"],
+                [
+                    b"access-control-allow-methods",
+                    b"PUT, GET, HEAD, POST, DELETE, OPTIONS",
+                ],
+                [b"Access-Control-Allow-Headers", b"*"],
+                [b"Cache-control", "no-store,private,no-cache,must-revalidate"],
+            ],
         }
     )
     await sleep(1.0)  # Allow triggering a read timeout.
@@ -283,5 +346,23 @@ def serve_in_thread(server: TestServer) -> typing.Iterator[TestServer]:
 @pytest.fixture(scope="session")
 def server() -> typing.Iterator[TestServer]:
     config = Config(app=app, lifespan="off", loop="asyncio")
+    server = TestServer(config=config)
+    yield from serve_in_thread(server)
+
+
+# a local https server is need for emscripten tests
+# to work
+@pytest.fixture(scope="session")
+def https_server(
+    cert_pem_file, cert_private_key_file
+):  # pragma: nocover (only used by emscripten)
+    config = Config(
+        app=app,
+        lifespan="off",
+        ssl_certfile=cert_pem_file,
+        ssl_keyfile=cert_private_key_file,
+        port=8001,
+        loop="asyncio",
+    )
     server = TestServer(config=config)
     yield from serve_in_thread(server)

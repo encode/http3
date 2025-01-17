@@ -36,6 +36,7 @@ nav:
         - Transports: 'advanced/transports.md'
         - Text Encodings: 'advanced/text-encodings.md'
         - Extensions: 'advanced/extensions.md'
+        - Emscripten: 'advanced/emscripten.md'
     - Guides:
         - Async Support: 'async.md'
         - HTTP/2 Support: 'http2.md'

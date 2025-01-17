@@ -4,6 +4,7 @@
 [ "$1" = "-p" ] && PYTHON=$2 || PYTHON="python3"
 
 REQUIREMENTS="requirements.txt"
+REQUIREMENTS_EMSCRIPTEN="requirements-emscripten.txt"
 VENV="venv"
 
 set -x
@@ -17,3 +18,7 @@ fi
 
 "$PIP" install -U pip
 "$PIP" install -r "$REQUIREMENTS"
+
+if [ -d 'pyodide_dist' ]; then
+    "$PIP" install -r "$REQUIREMENTS_EMSCRIPTEN"
+fi

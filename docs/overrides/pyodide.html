@@ -1,0 +1,128 @@
+{% extends "main.html" %}
+{% block styles %}
+    {{ super() }}
+    <link href="
+https://cdn.jsdelivr.net/npm/ace-builds@1.36.2/css/ace.min.css
+" rel="stylesheet"></link>
+    <style>
+        #pyodide_editor { 
+            width:100%;
+            height:10em;
+            margin-bottom:2em;
+
+        }
+        #pyodide_output {
+            width:100%;
+            height:20em;
+            whitespace:pre;
+            background-color:#eee; 
+            font-family: 'Courier New', monospace;
+            font-size:smaller;
+            overflow-y: auto;
+        }
+
+        #pyodide_output p {
+            margin:0;
+        }
+        .pyodide_error
+        {
+            color:#e00;
+        }
+         </style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/ace-builds@1.36.2/src-noconflict/ace.min.js"> </script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"> </script>
+<script language="javascript">
+    var pyodide;
+    var loadPromise;
+    var editor = ace.edit("pyodide_editor");
+    editor.setTheme("ace/theme/monokai");
+    editor.session.setMode("ace/mode/python");
+    let outputDiv = document.getElementById("pyodide_output")
+    outputDiv.innerText="Loading python in your browser";
+
+    async function initPyodide()
+    {
+        pyodide = await loadPyodide();
+        pyodide.setStdout({batched:stdoutLine})
+        pyodide.setStderr({batched:stderrLine});
+        if(document.location.origin.startsWith("http://127.0.0.1") 
+        || document.location.origin.startsWith("http://localhost"))
+        {
+            // if we are on a development machine
+            // use the wheel from the dist folder
+            await pyodide.loadPackage("/test.whl");
+            await pyodide.loadPackage("ssl");
+            await pyodide.loadPackage("idna");            
+            await pyodide.loadPackage("certifi");            
+        }else{
+            // otherwise load it from pypi
+            // (once a pyodide supporting version is on there)
+            await pyodide.loadPackage("micropip");
+            await pyodide.runPythonAsync("await micropip.install('httpx')")
+        }
+        outputDiv.innerText="Python runtime ready...\n"
+    }
+
+    loadPromise = initPyodide();
+
+    function stdoutLine(line)
+    {
+        var content = document.createElement("p");
+        content.textContent=line;
+        outputDiv.appendChild(content);
+    }
+
+    function stderrLine(line)
+    {
+        var content = document.createElement("p");
+        content.className="pyodide_error"
+        content.textContent=line;
+
+        outputDiv.appendChild(content);
+    }
+
+
+    async function runCode()
+    {
+        await loadPromise;
+        code = editor.getValue();
+        await pyodide.loadPackagesFromImports(code);
+        try
+        {
+            await pyodide.runPythonAsync(code);
+        }catch(e)
+        {
+            stderrLine(e.message);
+        }
+    }
+
+    function clearOutput()
+    {
+        outputDiv.innerHTML="";
+    }
+
+
+    run_button=document.createElement("button");
+    run_button.className="md-button";
+    run_button.onclick=runCode;
+    run_button.innerText="Run";
+    clear_button=document.createElement("button");
+    clear_button.className="md-button";
+    clear_button.onclick=clearOutput;
+    clear_button.innerText="Clear output";
+    clear_button.style="float:right";
+    var buttonDiv=document.getElementById("pyodide_buttons");
+    buttonDiv.appendChild(run_button);
+    buttonDiv.appendChild(clear_button);
+
+    window.runCode=runCode;    
+</script>
+{% endblock %}
+
+
+
+

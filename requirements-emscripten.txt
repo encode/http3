@@ -1,0 +1,2 @@
+# extra requirements for testing on emscripten
+pytest-pyodide==0.58.3
