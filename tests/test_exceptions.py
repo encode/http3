@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 import typing
 
 import httpcore
@@ -61,3 +62,19 @@ def test_request_attribute() -> None:
     request = httpx.Request("GET", "https://www.example.com")
     exc = httpx.ReadTimeout("Read operation timed out", request=request)
     assert exc.request == request
+
+
+def test_pickle_error(server):
+    with httpx.Client() as client:
+        response = client.request("GET", server.url.copy_with(path="/status/404"))
+        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            response.raise_for_status()
+        error = exc_info.value
+        assert isinstance(error, httpx.HTTPStatusError)
+        pickled_error = pickle.dumps(error)
+        unpickled_error = pickle.loads(pickled_error)
+        # Note that the unpickled error will not be equal to the original error
+        # because requests and responses are compared by identity.
+        assert str(unpickled_error) == str(error)
+        assert unpickled_error.request is not None
+        assert unpickled_error.response is not None

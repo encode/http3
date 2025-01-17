@@ -34,6 +34,7 @@ Our exception hierarchy:
 from __future__ import annotations
 
 import contextlib
+import functools
 import typing
 
 if typing.TYPE_CHECKING:
@@ -266,6 +267,22 @@ class HTTPStatusError(HTTPError):
         super().__init__(message)
         self.request = request
         self.response = response
+
+    def __reduce__(self) -> tuple[typing.Any, ...]:
+        # BaseException has a custom __reduce__ that can't handle subclasses with
+        # required keyword-only arguments.
+        return (
+            functools.partial(
+                self.__class__, request=self.request, response=self.response
+            ),
+            self.args,
+            # In case user code adds attributes to the exception instance.
+            {
+                k: v
+                for k, v in self.__dict__.items()
+                if k not in ("_request", "response")
+            },
+        )
 
 
 class InvalidURL(Exception):
