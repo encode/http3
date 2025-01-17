@@ -452,19 +452,17 @@ def test_url_set():
     assert all(url in urls for url in url_set)
 
 
+def test_custom_object_url():
+    class ExternalURLClass:
+        def __str__(self):
+            return "https://www.example.com/"
+
+    url = ExternalURLClass()
+    httpx_url = httpx.URL(url)
+    assert httpx_url == "https://www.example.com/"
+
+
 # Tests for TypeErrors when instantiating `httpx.URL`.
-
-
-def test_url_invalid_type():
-    """
-    Ensure that invalid types on `httpx.URL()` raise a `TypeError`.
-    """
-
-    class ExternalURLClass:  # representing external URL class
-        pass
-
-    with pytest.raises(TypeError):
-        httpx.URL(ExternalURLClass())  # type: ignore
 
 
 def test_url_with_invalid_component():

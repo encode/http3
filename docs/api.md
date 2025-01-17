@@ -112,6 +112,12 @@ what gets sent over the wire.*
 >>> url = URL("https://example.org/")
 >>> url.host
 'example.org'
+
+>>> from pydantic import HttpUrl
+>>> pydantic_url = HttpUrl("https://example.org/")
+>>> url = URL(pydantic_url)
+>>> url.host
+'example.org'
 ```
 
 * `def __init__(url, **kwargs)`

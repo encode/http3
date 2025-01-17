@@ -6,10 +6,14 @@ from urllib.parse import parse_qs, unquote, urlencode
 import idna
 
 from ._types import QueryParamTypes
-from ._urlparse import urlparse
+from ._urlparse import ParseResult, urlparse
 from ._utils import primitive_value_to_str
 
 __all__ = ["URL", "QueryParams"]
+
+
+class HasDunderStr(typing.Protocol):
+    def __str__(self) -> str: ...
 
 
 class URL:
@@ -74,7 +78,9 @@ class URL:
       themselves.
     """
 
-    def __init__(self, url: URL | str = "", **kwargs: typing.Any) -> None:
+    def __init__(
+        self, url: URL | str | HasDunderStr = "", **kwargs: typing.Any
+    ) -> None:
         if kwargs:
             allowed = {
                 "scheme": str,
@@ -113,15 +119,11 @@ class URL:
                 params = kwargs.pop("params")
                 kwargs["query"] = None if not params else str(QueryParams(params))
 
-        if isinstance(url, str):
-            self._uri_reference = urlparse(url, **kwargs)
-        elif isinstance(url, URL):
+        self._uri_reference: ParseResult
+        if isinstance(url, URL):
             self._uri_reference = url._uri_reference.copy_with(**kwargs)
         else:
-            raise TypeError(
-                "Invalid type for url.  Expected str or httpx.URL,"
-                f" got {type(url)}: {url!r}"
-            )
+            self._uri_reference = urlparse(str(url), **kwargs)
 
     @property
     def scheme(self) -> str:
