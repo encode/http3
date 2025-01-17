@@ -195,6 +195,7 @@ class BaseClient:
         cookies: CookieTypes | None = None,
         timeout: TimeoutTypes = DEFAULT_TIMEOUT_CONFIG,
         follow_redirects: bool = False,
+        merge_response_cookies: bool = True,
         max_redirects: int = DEFAULT_MAX_REDIRECTS,
         event_hooks: None | (typing.Mapping[str, list[EventHook]]) = None,
         base_url: URL | str = "",
@@ -211,6 +212,7 @@ class BaseClient:
         self._cookies = Cookies(cookies)
         self._timeout = Timeout(timeout)
         self.follow_redirects = follow_redirects
+        self.merge_response_cookies = merge_response_cookies
         self.max_redirects = max_redirects
         self._event_hooks = {
             "request": list(event_hooks.get("request", [])),
@@ -622,6 +624,8 @@ class Client(BaseClient):
     * **proxy** - *(optional)* A proxy URL where all the traffic should be routed.
     * **timeout** - *(optional)* The timeout configuration to use when sending
     requests.
+    * **merge_response_cookies** - *(optional) A boolean indicating if cookies from the
+    response should be merged into the cookie jar. Defaults to `True`.
     * **limits** - *(optional)* The limits configuration to use.
     * **max_redirects** - *(optional)* The maximum number of redirect responses
     that should be followed.
@@ -652,6 +656,7 @@ class Client(BaseClient):
         mounts: None | (typing.Mapping[str, BaseTransport | None]) = None,
         timeout: TimeoutTypes = DEFAULT_TIMEOUT_CONFIG,
         follow_redirects: bool = False,
+        merge_response_cookies: bool = True,
         limits: Limits = DEFAULT_LIMITS,
         max_redirects: int = DEFAULT_MAX_REDIRECTS,
         event_hooks: None | (typing.Mapping[str, list[EventHook]]) = None,
@@ -666,6 +671,7 @@ class Client(BaseClient):
             cookies=cookies,
             timeout=timeout,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             max_redirects=max_redirects,
             event_hooks=event_hooks,
             base_url=base_url,
@@ -782,6 +788,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -822,7 +829,12 @@ class Client(BaseClient):
             timeout=timeout,
             extensions=extensions,
         )
-        return self.send(request, auth=auth, follow_redirects=follow_redirects)
+        return self.send(
+            request,
+            auth=auth,
+            follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
+        )
 
     @contextmanager
     def stream(
@@ -839,6 +851,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> typing.Iterator[Response]:
@@ -869,6 +882,7 @@ class Client(BaseClient):
             request=request,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             stream=True,
         )
         try:
@@ -883,6 +897,7 @@ class Client(BaseClient):
         stream: bool = False,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
     ) -> Response:
         """
         Send a request.
@@ -906,6 +921,11 @@ class Client(BaseClient):
             if isinstance(follow_redirects, UseClientDefault)
             else follow_redirects
         )
+        merge_response_cookies = (
+            self.merge_response_cookies
+            if isinstance(merge_response_cookies, UseClientDefault)
+            else merge_response_cookies
+        )
 
         self._set_timeout(request)
 
@@ -915,6 +935,7 @@ class Client(BaseClient):
             request,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             history=[],
         )
         try:
@@ -932,6 +953,7 @@ class Client(BaseClient):
         request: Request,
         auth: Auth,
         follow_redirects: bool,
+        merge_response_cookies: bool,
         history: list[Response],
     ) -> Response:
         auth_flow = auth.sync_auth_flow(request)
@@ -942,6 +964,7 @@ class Client(BaseClient):
                 response = self._send_handling_redirects(
                     request,
                     follow_redirects=follow_redirects,
+                    merge_response_cookies=merge_response_cookies,
                     history=history,
                 )
                 try:
@@ -965,6 +988,7 @@ class Client(BaseClient):
         self,
         request: Request,
         follow_redirects: bool,
+        merge_response_cookies: bool,
         history: list[Response],
     ) -> Response:
         while True:
@@ -976,7 +1000,7 @@ class Client(BaseClient):
             for hook in self._event_hooks["request"]:
                 hook(request)
 
-            response = self._send_single_request(request)
+            response = self._send_single_request(request, merge_response_cookies)
             try:
                 for hook in self._event_hooks["response"]:
                     hook(response)
@@ -998,7 +1022,9 @@ class Client(BaseClient):
                 response.close()
                 raise exc
 
-    def _send_single_request(self, request: Request) -> Response:
+    def _send_single_request(
+        self, request: Request, merge_response_cookies: bool
+    ) -> Response:
         """
         Sends a single request, without handling any redirections.
         """
@@ -1019,7 +1045,8 @@ class Client(BaseClient):
         response.stream = BoundSyncStream(
             response.stream, response=response, start=start
         )
-        self.cookies.extract_cookies(response)
+        if merge_response_cookies:
+            self.cookies.extract_cookies(response)
         response.default_encoding = self._default_encoding
 
         logger.info(
@@ -1042,6 +1069,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1058,6 +1086,7 @@ class Client(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1071,6 +1100,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1087,6 +1117,7 @@ class Client(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1100,6 +1131,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1116,6 +1148,7 @@ class Client(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1133,6 +1166,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1153,6 +1187,7 @@ class Client(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1170,6 +1205,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1190,6 +1226,7 @@ class Client(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1207,6 +1244,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1227,6 +1265,7 @@ class Client(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1240,6 +1279,7 @@ class Client(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1256,6 +1296,7 @@ class Client(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1336,6 +1377,8 @@ class AsyncClient(BaseClient):
     * **proxy** - *(optional)* A proxy URL where all the traffic should be routed.
     * **timeout** - *(optional)* The timeout configuration to use when sending
     requests.
+    * **merge_response_cookies** - *(optional) A boolean indicating if cookies from the
+    response should be merged into the cookie jar. Defaults to `True`.
     * **limits** - *(optional)* The limits configuration to use.
     * **max_redirects** - *(optional)* The maximum number of redirect responses
     that should be followed.
@@ -1365,6 +1408,7 @@ class AsyncClient(BaseClient):
         mounts: None | (typing.Mapping[str, AsyncBaseTransport | None]) = None,
         timeout: TimeoutTypes = DEFAULT_TIMEOUT_CONFIG,
         follow_redirects: bool = False,
+        merge_response_cookies: bool = True,
         limits: Limits = DEFAULT_LIMITS,
         max_redirects: int = DEFAULT_MAX_REDIRECTS,
         event_hooks: None | (typing.Mapping[str, list[EventHook]]) = None,
@@ -1380,6 +1424,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             timeout=timeout,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             max_redirects=max_redirects,
             event_hooks=event_hooks,
             base_url=base_url,
@@ -1496,6 +1541,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1537,7 +1583,12 @@ class AsyncClient(BaseClient):
             timeout=timeout,
             extensions=extensions,
         )
-        return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+        return await self.send(
+            request,
+            auth=auth,
+            follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
+        )
 
     @asynccontextmanager
     async def stream(
@@ -1554,6 +1605,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> typing.AsyncIterator[Response]:
@@ -1584,6 +1636,7 @@ class AsyncClient(BaseClient):
             request=request,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             stream=True,
         )
         try:
@@ -1598,6 +1651,7 @@ class AsyncClient(BaseClient):
         stream: bool = False,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
     ) -> Response:
         """
         Send a request.
@@ -1621,6 +1675,11 @@ class AsyncClient(BaseClient):
             if isinstance(follow_redirects, UseClientDefault)
             else follow_redirects
         )
+        merge_response_cookies = (
+            self.merge_response_cookies
+            if isinstance(merge_response_cookies, UseClientDefault)
+            else merge_response_cookies
+        )
 
         self._set_timeout(request)
 
@@ -1630,6 +1689,7 @@ class AsyncClient(BaseClient):
             request,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             history=[],
         )
         try:
@@ -1647,6 +1707,7 @@ class AsyncClient(BaseClient):
         request: Request,
         auth: Auth,
         follow_redirects: bool,
+        merge_response_cookies: bool,
         history: list[Response],
     ) -> Response:
         auth_flow = auth.async_auth_flow(request)
@@ -1657,6 +1718,7 @@ class AsyncClient(BaseClient):
                 response = await self._send_handling_redirects(
                     request,
                     follow_redirects=follow_redirects,
+                    merge_response_cookies=merge_response_cookies,
                     history=history,
                 )
                 try:
@@ -1680,6 +1742,7 @@ class AsyncClient(BaseClient):
         self,
         request: Request,
         follow_redirects: bool,
+        merge_response_cookies: bool,
         history: list[Response],
     ) -> Response:
         while True:
@@ -1691,7 +1754,7 @@ class AsyncClient(BaseClient):
             for hook in self._event_hooks["request"]:
                 await hook(request)
 
-            response = await self._send_single_request(request)
+            response = await self._send_single_request(request, merge_response_cookies)
             try:
                 for hook in self._event_hooks["response"]:
                     await hook(response)
@@ -1714,7 +1777,9 @@ class AsyncClient(BaseClient):
                 await response.aclose()
                 raise exc
 
-    async def _send_single_request(self, request: Request) -> Response:
+    async def _send_single_request(
+        self, request: Request, merge_response_cookies: bool
+    ) -> Response:
         """
         Sends a single request, without handling any redirections.
         """
@@ -1734,7 +1799,8 @@ class AsyncClient(BaseClient):
         response.stream = BoundAsyncStream(
             response.stream, response=response, start=start
         )
-        self.cookies.extract_cookies(response)
+        if merge_response_cookies:
+            self.cookies.extract_cookies(response)
         response.default_encoding = self._default_encoding
 
         logger.info(
@@ -1757,6 +1823,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1773,6 +1840,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1786,6 +1854,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1802,6 +1871,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1815,6 +1885,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1831,6 +1902,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1848,6 +1920,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1868,6 +1941,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1885,6 +1959,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1905,6 +1980,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1922,6 +1998,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1942,6 +2019,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
@@ -1955,6 +2033,7 @@ class AsyncClient(BaseClient):
         cookies: CookieTypes | None = None,
         auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        merge_response_cookies: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
     ) -> Response:
@@ -1971,6 +2050,7 @@ class AsyncClient(BaseClient):
             cookies=cookies,
             auth=auth,
             follow_redirects=follow_redirects,
+            merge_response_cookies=merge_response_cookies,
             timeout=timeout,
             extensions=extensions,
         )
