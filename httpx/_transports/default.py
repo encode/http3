@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import contextlib
 import typing
+from functools import lru_cache
 from types import TracebackType
 
 if typing.TYPE_CHECKING:
@@ -69,6 +70,34 @@ SOCKET_OPTION = typing.Union[
 __all__ = ["AsyncHTTPTransport", "HTTPTransport"]
 
 HTTPCORE_EXC_MAP: dict[type[Exception], type[httpx.HTTPError]] = {}
+
+_DEFAULT_VERIFY = True
+_DEFAULT_CERT = None
+_DEFAULT_TRUST_ENV = True
+
+
+@lru_cache(maxsize=1)
+def _create_default_ssl_context() -> ssl.SSLContext:
+    return create_ssl_context(
+        verify=_DEFAULT_VERIFY,
+        cert=_DEFAULT_CERT,
+        trust_env=_DEFAULT_TRUST_ENV,
+    )
+
+
+def _create_or_reuse_ssl_context(
+    verify: ssl.SSLContext | str | bool = _DEFAULT_VERIFY,
+    cert: CertTypes | None = _DEFAULT_CERT,
+    trust_env: bool = _DEFAULT_TRUST_ENV,
+) -> ssl.SSLContext:
+    if (verify, cert, trust_env) == (
+        _DEFAULT_VERIFY,
+        _DEFAULT_CERT,
+        _DEFAULT_TRUST_ENV,
+    ):
+        return _create_default_ssl_context()
+    else:
+        return create_ssl_context(verify=verify, cert=cert, trust_env=trust_env)
 
 
 def _load_httpcore_exceptions() -> dict[type[Exception], type[httpx.HTTPError]]:
@@ -135,9 +164,9 @@ class ResponseStream(SyncByteStream):
 class HTTPTransport(BaseTransport):
     def __init__(
         self,
-        verify: ssl.SSLContext | str | bool = True,
-        cert: CertTypes | None = None,
-        trust_env: bool = True,
+        verify: ssl.SSLContext | str | bool = _DEFAULT_VERIFY,
+        cert: CertTypes | None = _DEFAULT_CERT,
+        trust_env: bool = _DEFAULT_TRUST_ENV,
         http1: bool = True,
         http2: bool = False,
         limits: Limits = DEFAULT_LIMITS,
@@ -150,7 +179,11 @@ class HTTPTransport(BaseTransport):
         import httpcore
 
         proxy = Proxy(url=proxy) if isinstance(proxy, (str, URL)) else proxy
-        ssl_context = create_ssl_context(verify=verify, cert=cert, trust_env=trust_env)
+        ssl_context = _create_or_reuse_ssl_context(
+            verify=verify,
+            cert=cert,
+            trust_env=trust_env,
+        )
 
         if proxy is None:
             self._pool = httpcore.ConnectionPool(
@@ -279,9 +312,9 @@ class AsyncResponseStream(AsyncByteStream):
 class AsyncHTTPTransport(AsyncBaseTransport):
     def __init__(
         self,
-        verify: ssl.SSLContext | str | bool = True,
-        cert: CertTypes | None = None,
-        trust_env: bool = True,
+        verify: ssl.SSLContext | str | bool = _DEFAULT_VERIFY,
+        cert: CertTypes | None = _DEFAULT_CERT,
+        trust_env: bool = _DEFAULT_TRUST_ENV,
         http1: bool = True,
         http2: bool = False,
         limits: Limits = DEFAULT_LIMITS,
@@ -294,7 +327,11 @@ class AsyncHTTPTransport(AsyncBaseTransport):
         import httpcore
 
         proxy = Proxy(url=proxy) if isinstance(proxy, (str, URL)) else proxy
-        ssl_context = create_ssl_context(verify=verify, cert=cert, trust_env=trust_env)
+        ssl_context = _create_or_reuse_ssl_context(
+            verify=verify,
+            cert=cert,
+            trust_env=trust_env,
+        )
 
         if proxy is None:
             self._pool = httpcore.AsyncConnectionPool(
