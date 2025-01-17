@@ -10,7 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
  
 ## 0.28.0 (28th November, 2024)
 
-The 0.28 release includes a limited set of deprecations.
+Be aware that the default *JSON request bodies now use a more compact representation*. This is generally considered a prefered style, tho may require updates to test suites.
+
+The 0.28 release includes a limited set of deprecations...
 
 **Deprecations**:
 
