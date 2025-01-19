@@ -65,6 +65,9 @@
 * `.request` - **Request**
 * `.next_request` - **Optional[Request]**
 * `.cookies` - **Cookies**
+* `.links` - **Dict[str, Dict[str, str]]**
+  * All parsed links from [the `link` header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Link), mapping each link's `rel` _or_ otherwise `url` to a `dict` of the link's params.
+  The link params always include its `url`.
 * `.history` - **List[Response]**
 * `.elapsed` - **[timedelta](https://docs.python.org/3/library/datetime.html)**
   * The amount of time elapsed between sending the request and calling `close()` on the corresponding response received for that request.
